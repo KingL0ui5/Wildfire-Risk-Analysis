@@ -2,10 +2,12 @@ from flask import Flask, jsonify, request
 import logging
 
 logging.basicConfig(
-    filename='api_requests.log',       # log file
+        filename='/home/linux1/api_requests.log',       # log file
     level=logging.INFO,                # log all INFO-level messages
     format='%(asctime)s %(levelname)s: %(message)s'
 )
+
+print("Python is active")
 
 app = Flask(__name__)
 
