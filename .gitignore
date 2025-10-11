@@ -3,3 +3,6 @@ data_pipeline/weather_data/
 testing/
 merged_weather.csv
 sliced_weather.csv
+data_pipeline/data/
+
+

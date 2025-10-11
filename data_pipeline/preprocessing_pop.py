@@ -7,7 +7,8 @@ def reshape_population_data(file_path):
     Each location will have 3 rows (2020, 2021, 2022)
     """
     # Read the CSV file
-    df = pd.read_csv(file_path)
+    df = pd.read_excel(file_path)
+    print(df.shape)
     
     # Clean column names
     df.columns = ['location', '2020', '2021', '2022']
@@ -35,39 +36,34 @@ def reshape_population_data(file_path):
     coord_results = df['location'].apply(extract_lat_lon)
     df['latitude'] = coord_results.apply(lambda x: x[0])
     df['longitude'] = coord_results.apply(lambda x: x[1])
-    
+
+    df.drop(labels=["location", "date"], axis=1, inplace=True)
     # Drop rows with missing coordinates
     df = df.dropna(subset=['latitude', 'longitude'])
-    
-    # Round coordinates for merging
-    df['lat_round'] = df['latitude'].round(2)
-    df['lon_round'] = df['longitude'].round(2)
     
     # Reshape from wide to long format using melt
     long_df = pd.melt(
         df, 
-        id_vars=['location', 'latitude', 'longitude', 'lat_round', 'lon_round'],
+        id_vars=['latitude', 'longitude'],
         value_vars=['2020', '2021', '2022'],
         var_name='year',
         value_name='population'
     )
     
+    
     # Convert year to datetime (using July 1st as reference date)
     long_df['date'] = pd.to_datetime(long_df['year'] + '-07-01')
-    
-    # Sort by location and year
-    long_df = long_df.sort_values(['location', 'year']).reset_index(drop=True)
-    
-    print(f"Original shape: {df.shape}")
-    print(f"Reshaped shape: {long_df.shape}")
-    print(f"Number of unique locations: {long_df['location'].nunique()}")
-    
     return long_df
 
 # Example usage and output
 if __name__ == "__main__":
     # Assuming your file is named 'city_pop.csv'
-    reshaped_df = reshape_population_data('city_pop.csv')
+    reshaped_df = reshape_population_data('./data_pipeline/data/city_pop.xlsx')
+    print(reshaped_df)
+    print(reshaped_df.head())
+    print(reshaped_df.tail())
+    print(reshaped_df.info())
+    print(reshaped_df.isna().sum())
     
     print("\n📊 Sample of reshaped data:")
     print(reshaped_df.head(12))
@@ -75,7 +71,3 @@ if __name__ == "__main__":
     print("\n📈 Data structure info:")
     print(reshaped_df.info())
     
-    # Show a specific location to demonstrate the structure
-    sample_location = reshaped_df['location'].iloc[0]
-    print(f"\n📍 Example of one location across all years:")
-    print(reshaped_df[reshaped_df['location'] == sample_location])
