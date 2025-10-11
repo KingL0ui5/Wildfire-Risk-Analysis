@@ -90,11 +90,11 @@ def slice_time(file, n, chunksize=100_000):
     Return rows from the last n years from a CSV, using chunked reading
     with a progress bar.
     """
-    # First pass: find latest time
+    # find latest time
     latest_time = None
     total_rows = 0
 
-    # Estimate total rows for progress bar (optional)
+    # total rows 
     with open(file, 'r') as f:
         total_rows = sum(1 for _ in f) - 1  # subtract header
 
@@ -109,7 +109,7 @@ def slice_time(file, n, chunksize=100_000):
 
     cutoff = latest_time - pd.DateOffset(years=n)
     
-    # Second pass: collect rows >= cutoff
+    # collect rows >= cutoff
     chunks = []
     print(f"Filtering rows from the last {n} years...")
     for chunk in tqdm(pd.read_csv(file, chunksize=chunksize), total=num_chunks):
