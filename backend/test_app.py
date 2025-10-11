@@ -1,7 +1,17 @@
-from flask import Flask, jsonify
-import json
+from flask import Flask, jsonify, request
+import logging
+
+logging.basicConfig(
+    filename='api_requests.log',       # log file
+    level=logging.INFO,                # log all INFO-level messages
+    format='%(asctime)s %(levelname)s: %(message)s'
+)
 
 app = Flask(__name__)
+
+@app.before_request
+def log_request_info():
+    logging.info(f"Request: {request.method} {request.path} from {request.remote_addr}")
 
 @app.route("/data.geojson")
 def get_data():
@@ -12,6 +22,7 @@ def get_data():
             {"type": "Feature", "geometry": {"type": "Point", "coordinates": [0, 0]}, "properties": {"name": "Center"}}
         ]
     }
+    logging.info("Returned GeoJSON data")
     return jsonify(geojson_data)
 
 if __name__ == "__main__":
