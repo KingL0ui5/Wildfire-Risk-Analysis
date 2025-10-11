@@ -3,6 +3,7 @@ import joblib
 import numpy as np
 from flask import Flask, request, jsonify
 
+
 # Create the Flask app
 app = Flask(__name__)
 
@@ -29,7 +30,7 @@ def predict():
 
     # randomise data here
 
-    return jsonify
+    return 
 
 # @app.route("/predict", methods=["POST"])
 # def predict():

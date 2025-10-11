@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 
 app = Flask(__name__)       
 
-@app.route("/data.geojson")
+@app.route("/predict")
 def get_data():
     geojson_data = {
         "type": "FeatureCollection",
