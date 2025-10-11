@@ -1,35 +1,97 @@
 const map = new maplibregl.Map({
-    container: 'map', // container id
-    style: 'https://api.maptiler.com/maps/streets-v2/style.json?key=5Vd1Ny9BxtDQJ9GTpLcX',
-    center: [-120.5, 43.8], // starting position [lng, lat]
-    zoom: 6, // starting zoom
-    maplibreLogo: true
+  container: 'map',
+  style: 'https://api.maptiler.com/maps/streets-v2/style.json?key=5Vd1Ny9BxtDQJ9GTpLcX',
+  center: [-120.5, 43.8],
+  zoom: 6,
+  maplibreLogo: true
 });
 
 map.on('load', () => {
   map.addSource('riskPoints', {
     type: 'geojson',
-    data: './test2.geojson'
+    data: './points.geojson'
   });
 
+  const heatCommon = {
+    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 8, 1.5, 12, 2.5],
+    'heatmap-radius':    ['interpolate', ['linear'], ['zoom'], 4, 12, 8, 28, 12, 60],
+    'heatmap-opacity':   ['interpolate', ['linear'], ['zoom'], 5, 0.8, 10, 0.7, 13, 0.5]
+  };
+
+  // --- LOW RISK < 50 ---
   map.addLayer({
-    id: 'risk-heatmap',
+    id: 'risk-heat-low',
     type: 'heatmap',
     source: 'riskPoints',
+    filter: ['<', ['get', 'risk'], 50],
     paint: {
-      'heatmap-weight': ['interpolate', ['linear'], ['get','risk'], 0, 0, 100, 1],
-      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 1, 1, 12, 2],
-      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 5, 30, 12, 15],
+      'heatmap-weight': 1,
+      ...heatCommon,
       'heatmap-color': [
         'interpolate', ['linear'], ['heatmap-density'],
-        0.0, 'rgb(0, 0, 0, 0)',
-        0.1, 'hsl(120,90%,45%)',
-        0.2, 'hsl(60,90%,50%)',
-        0.3, 'hsl(20,90%,50%)',
-        1.0, 'hsl(0,90%,45%)'
+        0.0, 'rgba(0, 0, 0, 0)',
+        0.15, 'rgba(0, 255, 0, 0.15)',
+        0.4, 'rgba(0, 255, 0, 0.35)',
+        0.8, 'rgba(0, 255, 0, 0.6)'
+      ]
+    }
+  });
+
+  // --- MEDIUM 50–75 ---
+  map.addLayer({
+    id: 'risk-heat-mid',
+    type: 'heatmap',
+    source: 'riskPoints',
+    filter: ['all', ['>=', ['get', 'risk'], 50], ['<=', ['get', 'risk'], 75]],
+    paint: {
+      'heatmap-weight': 1,
+      ...heatCommon,
+      'heatmap-color': [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0.0, 'rgba(0, 0, 0, 0)',
+        0.15, 'rgba(255, 165, 0, 0.25)',
+        0.4, 'rgba(255, 165, 0, 0.55)',
+        0.8, 'rgba(255, 140, 0, 0.85)'
+      ]
+    }
+  });
+
+  // --- HIGH > 75 — now more visible red ---
+  map.addLayer({
+    id: 'risk-heat-high',
+    type: 'heatmap',
+    source: 'riskPoints',
+    filter: ['>', ['get', 'risk'], 75],
+    paint: {
+      'heatmap-weight': 1.2, // a bit stronger for red areas
+      ...heatCommon,
+      'heatmap-color': [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0.0, 'rgba(0, 0, 0, 0)',
+        0.1, 'rgba(255, 50, 50, 0.4)',
+        0.3, 'rgba(255, 0, 0, 0.75)',
+        0.6, 'rgba(230, 0, 0, 0.9)',
+        1.0, 'rgba(200, 0, 0, 1.0)'
+      ]
+    }
+  });
+
+  // Optional crisp dots on top
+  map.addLayer({
+    id: 'risk-points-outline',
+    type: 'circle',
+    source: 'riskPoints',
+    minzoom: 7,
+    paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 7, 2, 12, 6],
+      'circle-color': [
+        'case',
+        ['<', ['get', 'risk'], 50], 'rgba(0, 255, 0, 0.3)',
+        ['<=', ['get', 'risk'], 75], 'rgba(255, 165, 0, 0.5)',
+        'rgba(255, 0, 0, 0.8)'
       ],
-      'heatmap-opacity': 0.85
+      'circle-stroke-color': 'rgba(255,255,255,0.7)',
+      'circle-stroke-width': 0.6
     }
   });
 });
-
