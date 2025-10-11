@@ -9,7 +9,7 @@ const map = new maplibregl.Map({
 map.on('load', () => {
   map.addSource('riskPoints', {
     type: 'geojson',
-    data: './test.geojson'
+    data: './test2.geojson'
   });
 
   map.addLayer({
