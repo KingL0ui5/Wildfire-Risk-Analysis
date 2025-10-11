@@ -1,0 +1,41 @@
+body { margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+.navbar {
+    background-color: rgba(225, 225, 225, 0.873);
+}
+
+.icon{
+    margin: 0px 5px 3px 10px;
+    height: 30px;
+}
+.dashboard{ 
+    height: calc(100vh - 56px - 30px);
+    display: flex; 
+    flex-direction: row;
+    gap: 10px;
+    margin: 10px;
+}
+
+.map-container{
+    display: flex;
+    flex-direction: column;    
+    width: 70%;
+}
+
+.metrics-container{
+    display: flex;
+    flex-direction: column;    
+    width: 30%;
+}
+
+#map{
+    flex: 1;
+}
+
+.data-section {
+    border-radius: 10px;
+    border: solid black 1px;
+    height: 100%
+}
+
