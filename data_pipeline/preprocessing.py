@@ -33,13 +33,10 @@ def load_weather_data(folder_path):
     # Combine all files
     weather_df = pd.concat(all_weather, ignore_index=True)
 
-    # Round coordinates for merging
-    weather_df["lat_round"] = weather_df["latitude"].round(2)
-    weather_df["lon_round"] = weather_df["longitude"].round(2)
 
     weather_df['snow_depth (m)'] = weather_df['snow_depth (m)'].fillna(0)
 
-    weather_df.drop(labels=["location_id", "latitude", "longitude", "timezone", "timezone_abbreviation", "utc_offset_seconds"], axis=1, inplace=True)
+    weather_df.drop(labels=["location_id", "timezone", "timezone_abbreviation", "utc_offset_seconds"], axis=1, inplace=True)
 
     print(weather_df.isna().sum())
     # weather_df.dropna(inplace=True)
