@@ -1,0 +1,59 @@
+import os
+import joblib
+import numpy as np
+from flask import Flask, request, jsonify
+
+# Create the Flask app
+app = Flask(__name__)
+
+# Path to model file
+MODEL_PATH = os.environ.get("MODEL_PATH", "models/wildfire_model.pkl")
+
+# Load model on startup
+try:
+    model = joblib.load(MODEL_PATH)
+    print(f"✅ Model loaded from {MODEL_PATH}")
+except Exception as e:
+    print(f"❌ Failed to load model from {MODEL_PATH}: {e}")
+    model = None
+
+@app.route("/")
+def home():
+    return jsonify({"message": "🔥 Wildfire Forecast API is running."})
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    """
+    Expects a JSON body like:
+    {
+        "features": [0.2, 1.5, 3.0, ...]
+    }
+    """
+    if model is None:
+        return jsonify({"error": "Model not loaded."}), 500
+
+    data = request.get_json()
+
+    if not data or "features" not in data:
+        return jsonify({"error": "Missing 'features' field."}), 400
+
+    try:
+        features = np.array(data["features"]).reshape(1, -1)
+        prediction = model.predict(features)
+        # Optional: if the model has probabilities
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(features).tolist()
+        else:
+            proba = None
+
+        return jsonify({
+            "prediction": prediction.tolist(),
+            "probabilities": proba
+        })
+    except Exception as e:
+        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+
+
+if __name__ == "__main__":
+    # Run the Flask app inside Docker container
+    app.run(host="0.0.0.0", port=5000)
