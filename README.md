@@ -1,24 +1,31 @@
-# Wildfire-Risk-Analysis
+# Wildfire Risk Analysis
 
+Full-stack project for analyzing and forecasting wildfire risks.
+
+---
+
+## 📁 Directory Structure
+
+```text
 wildfire_forecast/
-├── data_pipeline/
-│   ├── preprocess.py
-│   ├── train_model.py
-│   ├── requirements.txt
-│   └── Dockerfile          <-- optional if you want to containerize training
+├── data_pipeline/              # Scripts for data processing and model training
+│   ├── preprocess.py           # Preprocess raw wildfire data
+│   ├── train_model.py          # Train and evaluate model
+│   ├── requirements.txt        # Dependencies for training environment
+│   └── Dockerfile              # (Optional) Docker container for training
 │
-├── model_store/
-│   └── model.pkl           <-- output of training (ignored by git)
+├── model_store/                # Trained models (not tracked by Git)
+│   └── model.pkl               # Output from model training
 │
-├── backend/
-│   ├── app.py
-│   ├── requirements.txt
-│   └── Dockerfile
+├── backend/                    # Backend API service
+│   ├── app.py                  # API logic using Flask or FastAPI
+│   ├── requirements.txt        # Backend dependencies
+│   └── Dockerfile              # Docker setup for backend
 │
-├── frontend/
-│   ├── package.json
-│   ├── src/
-│   └── Dockerfile
+├── frontend/                   # Frontend UI (e.g., React app)
+│   ├── package.json            # Frontend dependencies
+│   ├── src/                    # Source code for UI
+│   └── Dockerfile              # Docker setup for frontend
 │
-├── docker-compose.yml
-└── README.md
+├── docker-compose.yml          # Compose file to run all services
+└── README.md                   # Project overview and setup instructions
