@@ -3,6 +3,7 @@ import joblib
 import numpy as np
 from flask import Flask, request, jsonify
 
+
 # Create the Flask app
 app = Flask(__name__)
 
@@ -19,39 +20,49 @@ except Exception as e:
 
 @app.route("/")
 def home():
-    return jsonify({"message": "🔥 Wildfire Forecast API is running."})
+    return jsonify({"message": "🔥 Wildfire Forecast API is running. \n(home directory accessed)"})
 
-@app.route("/predict", methods=["POST"])
+@app.route("/predict")
 def predict():
     """
-    Expects a JSON body like:
-    {
-        "features": [0.2, 1.5, 3.0, ...]
-    }
+    Return risk predictions in geojson format
     """
-    if model is None:
-        return jsonify({"error": "Model not loaded."}), 500
 
-    data = request.get_json()
+    # randomise data here
 
-    if not data or "features" not in data:
-        return jsonify({"error": "Missing 'features' field."}), 400
+    return 
 
-    try:
-        features = np.array(data["features"]).reshape(1, -1)
-        prediction = model.predict(features)
-        # Optional: if the model has probabilities
-        if hasattr(model, "predict_proba"):
-            proba = model.predict_proba(features).tolist()
-        else:
-            proba = None
+# @app.route("/predict", methods=["POST"])
+# def predict():
+#     """
+#     Expects a JSON body like:
+#     {
+#         "features": [0.2, 1.5, 3.0, ...]
+#     }
+#     """
+#     if model is None:
+#         return jsonify({"error": "Model not loaded."}), 500
 
-        return jsonify({
-            "prediction": prediction.tolist(),
-            "probabilities": proba
-        })
-    except Exception as e:
-        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+#     data = request.get_json()
+
+#     if not data or "features" not in data:
+#         return jsonify({"error": "Missing 'features' field."}), 400
+
+#     try:
+#         features = np.array(data["features"]).reshape(1, -1)
+#         prediction = model.predict(features)
+#         # Optional: if the model has probabilities
+#         if hasattr(model, "predict_proba"):
+#             proba = model.predict_proba(features).tolist()
+#         else:
+#             proba = None
+
+#         return jsonify({
+#             "prediction": prediction.tolist(),
+#             "probabilities": proba
+#         })
+#     except Exception as e:
+#         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
