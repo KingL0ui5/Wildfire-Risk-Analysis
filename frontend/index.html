@@ -5,24 +5,32 @@
 </head>
 <body>
     <h1>GeoJSON Data</h1>
+
+    <!-- Button to trigger the API call -->
+    <button id="fetchButton">Fetch GeoJSON</button>
+
+    <!-- Output container -->
     <pre id="output"></pre>
 
     <script>
-        // Make GET request to the Flask API
-        fetch("http://localhost:5000/data.geojson")
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Network response was not ok");
-                }
-                return response.json(); // parse JSON
-            })
-            .then(data => {
-                console.log(data); // log for debugging
-                document.getElementById("output").textContent = JSON.stringify(data, null, 2);
-            })
-            .catch(error => {
-                console.error("Error fetching data:", error);
-            });
+        document.getElementById("fetchButton").addEventListener("click", () => {
+            // Make GET request to the Flask API
+            fetch("http://localhost:5000/data.geojson")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Network response was not ok");
+                    }
+                    return response.json(); // parse JSON
+                })
+                .then(data => {
+                    console.log(data); // log for debugging
+                    document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => {
+                    console.error("Error fetching data:", error);
+                });
+        });
     </script>
 </body>
 </html>
+
