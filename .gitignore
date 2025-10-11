@@ -1,3 +1,4 @@
 *.pem
-data_pipeline/test/
+data_pipeline/weather_data/
 testing/
+merged_weather.csv
