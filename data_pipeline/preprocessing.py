@@ -3,65 +3,20 @@ import numpy as np
 import glob
 from sklearn.preprocessing import MinMaxScaler
 
-
-def load_fire_data(path):
-    df = pd.read_csv(path)
-
-    # Clean column names
-    df.columns = df.columns.str.strip()
-
-    # Drop rows missing key fields
-    df = df.dropna(subset=["Ign_DateTime", "Lat_DD", "Long_DD"])
-
-    # Convert ignition time
-    df["Ign_DateTime"] = pd.to_datetime(df["Ign_DateTime"], errors="coerce")
-    df = df.dropna(subset=["Ign_DateTime"])
-
-    # Floor ignition time to the nearest hour
-    df["Ign_Hour"] = df["Ign_DateTime"].dt.floor("H")
-
-    # Round coordinates to match weather grid
-    df["lat_round"] = df["Lat_DD"].round(2)
-    df["lon_round"] = df["Long_DD"].round(2)
-
-    # Encode fire cause
-    def encode_cause(x):
-        if "Human" in str(x):
-            return 0
-        elif "Lightning" in str(x):
-            return 1
-        else:
-            return -1  # unknown or under investigation
-    df["Cause"] = df["HumanOrL"].apply(encode_cause)
-
-    return df
-
-
-# ======================================================
-# 2. 🌦️ Load & preprocess WEATHER data (from multiple files)
-# ======================================================
 def load_weather_data(folder_path):
-    files = glob.glob(f"{folder_path}/")
+    files = glob.glob(f"{folder_path}/*.csv")
     print(files)
     all_weather = []
 
     for file in files:
-        meta = pd.read_csv(file, nrows=11)
+        meta = pd.read_csv(file, nrows=10)
         ts = pd.read_csv(file, skiprows=12)
-
-        # Format metadata
-        meta.columns = meta.iloc[0]
-        meta = meta[1:]
-        meta = meta.rename(columns=lambda x: str(x).strip())
 
         meta["latitude"] = meta["latitude"].astype(float)
         meta["longitude"] = meta["longitude"].astype(float)
         meta["location_id"] = meta["location_id"].astype(int)
 
         # Format timeseries
-        ts.columns = ts.iloc[0]
-        ts = ts[1:]
-        ts = ts.rename(columns=lambda x: str(x).strip())
         ts["location_id"] = ts["location_id"].astype(int)
         ts["time"] = pd.to_datetime(ts["time"])
 
@@ -82,6 +37,12 @@ def load_weather_data(folder_path):
     weather_df["lat_round"] = weather_df["latitude"].round(2)
     weather_df["lon_round"] = weather_df["longitude"].round(2)
 
+    weather_df['snow_depth (m)'] = weather_df['snow_depth (m)'].fillna(0)
+
+    weather_df.drop(labels=["location_id", "latitude", "longitude", "timezone", "timezone_abbreviation", "utc_offset_seconds"], axis=1, inplace=True)
+
+    print(weather_df.isna().sum())
+    # weather_df.dropna(inplace=True)
     return weather_df
 
 
@@ -149,14 +110,12 @@ def add_features(df):
 
 if __name__ == "__main__":
     fire_path = "fires.csv"
-    weather_folder = "data_pipeline/test/data/*"
-
-    # print("Loading fire data...")
-    # fire_df = load_fire_data(fire_path)
+    weather_folder = "./data_pipeline/test/data"
 
     print("Loading weather data...")
     weather_df = load_weather_data(weather_folder)
-    print(weather_df)
+
+
 
     # print("Merging fire and weather data...")
     # merged_df = merge_fire_weather(weather_df, fire_df)
@@ -168,4 +127,4 @@ if __name__ == "__main__":
     # print(final_df.head())
 
     # Optional: save the result
-    # final_df.to_csv("merged_fire_weather_ml_ready.csv", index=False)
+    weather_df.to_csv("merged_weather.csv", index=False)
