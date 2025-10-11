@@ -1,0 +1,55 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-123.262, 44.564] },
+      "properties": { "name": "Corvallis", "risk": 68 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-122.676, 45.523] },
+      "properties": { "name": "Portland", "risk": 75 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-121.315, 44.058] },
+      "properties": { "name": "Bend", "risk": 83 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-124.105, 43.372] },
+      "properties": { "name": "Coos Bay", "risk": 20 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-123.931, 46.187] },
+      "properties": { "name": "Astoria", "risk": 47 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-122.609, 43.797] },
+      "properties": { "name": "Oakridge", "risk": 91 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-118.207, 44.772] },
+      "properties": { "name": "Baker City", "risk": 60 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-119.289, 45.839] },
+      "properties": { "name": "Pendleton", "risk": 78 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-121.786, 42.224] },
+      "properties": { "name": "Klamath Falls", "risk": 72 }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-124.054, 44.636] },
+      "properties": { "name": "Newport", "risk": 40 }
+    }
+  ]
+}

@@ -3,9 +3,7 @@ import numpy as np
 import glob
 from sklearn.preprocessing import MinMaxScaler
 
-# ======================================================
-# 1. 🔥 Load & preprocess FIRE data
-# ======================================================
+
 def load_fire_data(path):
     df = pd.read_csv(path)
 
@@ -43,16 +41,13 @@ def load_fire_data(path):
 # 2. 🌦️ Load & preprocess WEATHER data (from multiple files)
 # ======================================================
 def load_weather_data(folder_path):
-    files = glob.glob(f"{folder_path}/*.csv")
+    files = glob.glob(f"{folder_path}/")
+    print(files)
     all_weather = []
 
     for file in files:
-        raw = pd.read_csv(file, header=None)
-
-        # Find where timeseries starts
-        ts_start_idx = raw[raw.iloc[:, 0] == "location_id"].index[0]
-        meta = raw.iloc[:ts_start_idx].copy()
-        ts = raw.iloc[ts_start_idx:].copy()
+        meta = pd.read_csv(file, nrows=11)
+        ts = pd.read_csv(file, skiprows=12)
 
         # Format metadata
         meta.columns = meta.iloc[0]
@@ -149,31 +144,28 @@ def add_features(df):
     return df
 
 
-# ======================================================
-# 5. 🏁 Main pipeline
-# ======================================================
-def main():
-    fire_path = "fires.csv"
-    weather_folder = "weather_data"
-
-    print("Loading fire data...")
-    fire_df = load_fire_data(fire_path)
-
-    print("Loading weather data...")
-    weather_df = load_weather_data(weather_folder)
-
-    print("Merging fire and weather data...")
-    merged_df = merge_fire_weather(weather_df, fire_df)
-
-    print("Engineering features...")
-    final_df = add_features(merged_df)
-
-    print(f"✅ Final dataset shape: {final_df.shape}")
-    print(final_df.head())
-
-    # Optional: save the result
-    final_df.to_csv("merged_fire_weather_ml_ready.csv", index=False)
+    
 
 
 if __name__ == "__main__":
-    main()
+    fire_path = "fires.csv"
+    weather_folder = "data_pipeline/test/data/*"
+
+    # print("Loading fire data...")
+    # fire_df = load_fire_data(fire_path)
+
+    print("Loading weather data...")
+    weather_df = load_weather_data(weather_folder)
+    print(weather_df)
+
+    # print("Merging fire and weather data...")
+    # merged_df = merge_fire_weather(weather_df, fire_df)
+
+    # print("Engineering features...")
+    # final_df = add_features(merged_df)
+
+    # print(f"✅ Final dataset shape: {final_df.shape}")
+    # print(final_df.head())
+
+    # Optional: save the result
+    # final_df.to_csv("merged_fire_weather_ml_ready.csv", index=False)
