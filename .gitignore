@@ -2,3 +2,4 @@
 data_pipeline/weather_data/
 testing/
 merged_weather.csv
+data_pipeline/data/
