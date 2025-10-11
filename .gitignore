@@ -2,4 +2,8 @@
 data_pipeline/weather_data/
 testing/
 merged_weather.csv
+<<<<<<< HEAD
 data_pipeline/data/
+=======
+sliced_weather.csv
+>>>>>>> c962b1589486bdac71aec83ea6c411ef054d07d7
