@@ -6,6 +6,26 @@ const map = new maplibregl.Map({
   maplibreLogo: true
 });
 
+// Popup
+const popup = new maplibregl.Popup({
+  closeButton: true,
+  closeOnClick: true
+});
+
+// Listen for map clicks
+map.on('click', (e) => {
+  const { lng, lat } = e.lngLat;
+
+  // Show a popup with coordinates
+  popup
+    .setLngLat([lng, lat])
+    .setHTML(`<strong>Longitude:</strong> ${lng.toFixed(5)}<br><strong>Latitude:</strong> ${lat.toFixed(5)}`)
+    .addTo(map);
+
+  console.log(`Clicked at: ${lng.toFixed(5)}, ${lat.toFixed(5)}`);
+});
+
+
 map.on('load', () => {
   map.addSource('riskPoints', {
     type: 'geojson',
@@ -18,7 +38,7 @@ map.on('load', () => {
     'heatmap-opacity':   ['interpolate', ['linear'], ['zoom'], 5, 0.8, 10, 0.7, 13, 0.5]
   };
 
-  // --- LOW RISK < 50 ---
+  //LOW RISK < 50
   map.addLayer({
     id: 'risk-heat-low',
     type: 'heatmap',
@@ -37,7 +57,7 @@ map.on('load', () => {
     }
   });
 
-  // --- MEDIUM 50–75 ---
+  //MEDIUM risk 50–75
   map.addLayer({
     id: 'risk-heat-mid',
     type: 'heatmap',
@@ -56,7 +76,7 @@ map.on('load', () => {
     }
   });
 
-  // --- HIGH > 75 — now more visible red ---
+  // HIGH risk > 75
   map.addLayer({
     id: 'risk-heat-high',
     type: 'heatmap',
@@ -76,7 +96,6 @@ map.on('load', () => {
     }
   });
 
-  // Optional crisp dots on top
   map.addLayer({
     id: 'risk-points-outline',
     type: 'circle',
@@ -94,4 +113,24 @@ map.on('load', () => {
       'circle-stroke-width': 0.6
     }
   });
+
+  fetch('./points.geojson')
+    .then(r => r.json())
+    .then(data => {
+      const features = (data && data.features) ? data.features : [];
+      const top5 = [...features]
+        .sort((a, b) => (Number(b.properties?.risk) || 0) - (Number(a.properties?.risk) || 0))
+        .slice(0, 5);
+
+      const ul = document.getElementById('top5');
+      if (!ul) return;
+
+      ul.innerHTML = top5.map(f => {
+        const [lon, lat] = f.geometry.coordinates || [NaN, NaN];
+        const risk = Number(f.properties?.risk) || 0;
+        return `<li class="list-group-item">${lon.toFixed(3)}, ${lat.toFixed(3)} <span class="text-muted">— risk ${risk}</span></li>`;
+      }).join('');
+    })
+    .catch(err => console.error('Failed to load points.geojson:', err));
+
 });
