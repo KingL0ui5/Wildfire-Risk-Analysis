@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   website:
-    build: .
+    build: ./frontend
     container_name: my-website
     ports:
       - "38080:80"
