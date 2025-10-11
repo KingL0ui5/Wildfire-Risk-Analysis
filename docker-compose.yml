@@ -1,10 +1,19 @@
 version: "3.8"
 
 services:
-  website:
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "5000:5000" 
+    restart: unless-stopped
+
+  frontend:
     build: ./frontend
-    container_name: my-website
+    container_name: frontend
     ports:
       - "38080:80"
+    depends_on:
+      - backend    
     restart: unless-stopped
 
