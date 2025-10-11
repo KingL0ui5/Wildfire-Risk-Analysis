@@ -7,4 +7,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 COPY . .
 EXPOSE 5000
-CMD ["python", "app.py"]
+CMD ["python", "test_app.py"]
