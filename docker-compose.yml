@@ -6,14 +6,23 @@ services:
     container_name: backend
     ports:
       - "5000:5000" 
+    networks:
+      - mynetwork
+
     restart: unless-stopped
+    
 
   frontend:
     build: ./frontend
     container_name: frontend
     ports:
       - "38080:80"
+    networks:
+      - mynetwork
     depends_on:
       - backend    
     restart: unless-stopped
 
+networks:
+  mynetwork:
+    driver: bridge
