@@ -29,7 +29,7 @@ map.on('click', (e) => {
 map.on('load', () => {
   map.addSource('riskPoints', {
     type: 'geojson',
-    data: 'http://127.0.0.1/5000/predict'
+    data: 'http://backend:5000/predict'
   });
 
   const heatCommon = {
@@ -114,7 +114,7 @@ map.on('load', () => {
     }
   });
 
-  fetch('http://127.0.0.1:5000/predict')
+  fetch('http://backend:5000/predict')
     .then(r => r.json())
     .then(data => {
       const features = (data && data.features) ? data.features : [];
