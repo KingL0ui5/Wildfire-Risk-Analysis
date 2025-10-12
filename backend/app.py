@@ -1,22 +1,22 @@
-import os
-import joblib
-import numpy as np
+# import numpy as np
 from flask import Flask, request, jsonify
+from helpers.converter import csv_to_geojson
+import json
 
 
 # Create the Flask app
 app = Flask(__name__)
 
 # Path to model file
-MODEL_PATH = os.environ.get("MODEL_PATH", "models/wildfire_model.pkl")
+# MODEL_PATH = os.environ.get("MODEL_PATH", "models/wildfire_model.pkl")
 
-# Load model on startup
-try:
-    model = joblib.load(MODEL_PATH)
-    print(f"✅ Model loaded from {MODEL_PATH}")
-except Exception as e:
-    print(f"❌ Failed to load model from {MODEL_PATH}: {e}")
-    model = None
+# # Load model on startup
+# try:
+#     model = joblib.load(MODEL_PATH)
+#     print(f"✅ Model loaded from {MODEL_PATH}")
+# except Exception as e:
+#     print(f"❌ Failed to load model from {MODEL_PATH}: {e}")
+#     model = None
 
 @app.route("/")
 def home():
@@ -29,8 +29,10 @@ def predict():
     """
 
     # randomise data here
+    csv_to_geojson("backend/helpers/data/input.csv", "backend/helpers/data/output.geojson")
+    geojson_data = json.load("backend/helpers/data/output.geojson")
 
-    return 
+    return jsonify(geojson_data)
 
 # @app.route("/predict", methods=["POST"])
 # def predict():
