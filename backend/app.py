@@ -2,10 +2,12 @@
 from flask import Flask, request, jsonify
 from helpers.converter import csv_to_geojson
 import json
+from flask_cors import CORS
 
 
 # Create the Flask app
 app = Flask(__name__)
+CORS(app)
 
 # Path to model file
 # MODEL_PATH = os.environ.get("MODEL_PATH", "models/wildfire_model.pkl")
