@@ -26,10 +26,11 @@ def home():
     return jsonify({"message": "🔥 Wildfire Forecast API is running. \n(home directory accessed)"})
 
 def normalise_risks(values):
-    """Rank-based percentile normalisation to a 0-100 scale (robust to heavy tails)."""
+    """Log-scaled min-max normalisation to a 0-100 scale (robust to heavy tails)."""
     arr = np.asarray(values, dtype=float)
-    ranks = arr.argsort().argsort()
-    return 100.0 * ranks / max(len(arr) - 1, 1)
+    logs = np.log10(arr + 1)
+    lo, hi = logs.min(), logs.max()
+    return 100.0 * (logs - lo) / max(hi - lo, 1e-9)
 
 
 @app.route("/predict")
