@@ -118,22 +118,23 @@ def risk_surface():
 
 
 def _colormap(vals):
-    """Map 0-100 risk values to green->yellow->orange->red RGB channels."""
-    stops = np.array([0, 35, 55, 70, 85, 100])
-    reds = np.array([0, 170, 255, 255, 220, 200])
-    greens = np.array([180, 220, 215, 140, 60, 0])
+    """Map 0-100 risk values to RGB: flat green below 25, then yellow->orange->red."""
+    stops = np.array([0, 25, 40, 55, 70, 85])
+    reds = np.array([0, 0, 255, 255, 220, 200])
+    greens = np.array([180, 180, 215, 140, 60, 0])
     blues = np.array([0, 0, 0, 0, 40, 0])
     return (np.interp(vals, stops, reds),
             np.interp(vals, stops, greens),
             np.interp(vals, stops, blues))
 
 
-def build_risk_image(csv_path, cell=0.02, sigma_broad=0.12, sigma_hot=0.1):
+def build_risk_image(csv_path, cell=0.02, sigma=0.08):
     """
-    Render the fire-risk surface as a smooth RGBA PNG plus its geographic
-    bounds, for use as a map image overlay. Combines two components:
-    a broad density wash (green->yellow->orange) and tight hotspots at
-    major fires (red dots).
+    Render the risk surface as a smooth RGBA PNG plus its geographic bounds,
+    for use as a map image overlay. Every grid point is evaluated as the
+    Gaussian-weighted local average of the risk evaluations (normalised
+    0-100), so low-risk areas render as flat green and only genuinely
+    high-risk evaluations escalate through yellow/orange/red.
     """
     lats, lons, risks = [], [], []
     with open(csv_path, newline="", encoding="utf-8") as f:
@@ -145,25 +146,21 @@ def build_risk_image(csv_path, cell=0.02, sigma_broad=0.12, sigma_hot=0.1):
             except (KeyError, ValueError):
                 continue
 
-    lats, lons, risks = np.asarray(lats), np.asarray(lons), np.asarray(risks)
+    lats, lons = np.asarray(lats), np.asarray(lons)
+    risk_norm = normalise_risks(risks)
     lon_c = np.arange(lons.min() - cell, lons.max() + cell, cell)
     lat_c = np.arange(lats.min() - cell, lats.max() + cell, cell)
-    severity = 1 + np.log10(1 + risks)
-    hot_weight = np.clip(np.log10(1 + risks) - 2, 0, 1.2)  # only sizeable fires
 
-    broad_rows, hot_rows = [], []
+    num_rows, den_rows = [], []
     for i in range(0, len(lat_c), 16):  # chunk rows to bound memory
         glat = lat_c[i:i + 16]
         d2 = (lon_c[None, :, None] - lons) ** 2 + (glat[:, None, None] - lats) ** 2
-        broad_rows.append((np.exp(-d2 / (2 * sigma_broad ** 2)) * severity).sum(axis=-1))
-        hot_rows.append((np.exp(-d2 / (2 * sigma_hot ** 2)) * hot_weight).sum(axis=-1))
-    broad = np.concatenate(broad_rows, axis=0)
-    hot = np.concatenate(hot_rows, axis=0)
-
-    # Broad wash tops out at orange; only hotspots reach red
-    broad_score = 68.0 * np.log1p(broad) / max(np.log1p(broad.max()), 1e-9)
-    hot_score = 100.0 * (hot / max(hot.max(), 1e-9)) ** 0.5
-    grid = np.maximum(broad_score, hot_score)
+        w = np.exp(-d2 / (2 * sigma ** 2))
+        num_rows.append((w * risk_norm).sum(axis=-1))
+        den_rows.append(w.sum(axis=-1))
+    num = np.concatenate(num_rows, axis=0)
+    den = np.concatenate(den_rows, axis=0)
+    grid = np.where(den > 1e-10, num / np.maximum(den, 1e-10), 0.0)
 
     r, g, b = _colormap(grid)
     alpha = np.full_like(r, 160.0)
