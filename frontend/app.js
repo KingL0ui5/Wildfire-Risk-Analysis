@@ -27,29 +27,32 @@ map.on('click', (e) => {
 
 
 map.on('load', () => {
-  map.addSource('riskSurface', {
-    type: 'geojson',
-    data: 'http://localhost:5000/risk-surface'
-  });
-
-  map.addLayer({
-    id: 'risk-surface',
-    type: 'fill',
-    source: 'riskSurface',
-    paint: {
-      'fill-color': [
-        'interpolate', ['linear'], ['get', 'risk'],
-        0, 'rgb(0, 180, 0)',
-        10, 'rgb(170, 220, 0)',
-        25, 'rgb(255, 215, 0)',
-        45, 'rgb(255, 140, 0)',
-        65, 'rgb(255, 60, 0)',
-        85, 'rgb(200, 0, 0)'
-      ],
-      'fill-opacity': 0.35,
-      'fill-outline-color': 'rgba(0, 0, 0, 0)'
-    }
-  });
+  // Smooth risk surface rendered server-side as an image overlay
+  fetch('http://localhost:5000/risk-surface-bounds')
+    .then(r => r.json())
+    .then(b => {
+      map.addSource('riskSurface', {
+        type: 'image',
+        url: 'http://localhost:5000/risk-surface.png',
+        coordinates: [
+          [b.west, b.north],
+          [b.east, b.north],
+          [b.east, b.south],
+          [b.west, b.south]
+        ]
+      });
+      map.addLayer({
+        id: 'risk-surface',
+        type: 'raster',
+        source: 'riskSurface',
+        paint: {
+          'raster-opacity': 0.55,
+          'raster-resampling': 'linear',
+          'raster-fade-duration': 0
+        }
+      }, map.getLayer('risk-heat-low') ? 'risk-heat-low' : undefined);
+    })
+    .catch(err => console.error('Failed to load risk surface:', err));
 
   map.addSource('riskPoints', {
     type: 'geojson',

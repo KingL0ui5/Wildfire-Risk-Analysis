@@ -1,8 +1,10 @@
 import numpy as np
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from helpers.converter import csv_to_geojson
 import json
 import csv
+import io
+from PIL import Image
 from flask_cors import CORS
 
 
@@ -53,11 +55,12 @@ def predict():
     return jsonify(geojson_data)
 
 
-def build_risk_surface(csv_path, cell=0.1, power=2):
+def build_risk_surface(csv_path, cell=0.1, sigma=0.25):
     """
-    Interpolate point risk values onto a regular grid using inverse
-    distance weighting (IDW), returned as a GeoJSON FeatureCollection
-    of grid-cell polygons.
+    Build a severity-weighted fire-density surface on a regular grid,
+    returned as a GeoJSON FeatureCollection of grid-cell polygons.
+    Each cell scores the amount of nearby fire activity (Gaussian kernel),
+    weighted by log severity, then log-normalised to 0-100.
     """
     lats, lons, risks = [], [], []
     with open(csv_path, newline="", encoding="utf-8") as f:
@@ -69,8 +72,7 @@ def build_risk_surface(csv_path, cell=0.1, power=2):
             except (KeyError, ValueError):
                 continue
 
-    lats, lons = np.asarray(lats), np.asarray(lons)
-    risks = normalise_risks(risks)
+    lats, lons, risks = np.asarray(lats), np.asarray(lons), np.asarray(risks)
     lon_edges = np.arange(lons.min() - cell, lons.max() + 2 * cell, cell)
     lat_edges = np.arange(lats.min() - cell, lats.max() + 2 * cell, cell)
     lon_c = (lon_edges[:-1] + lon_edges[1:]) / 2
@@ -78,14 +80,17 @@ def build_risk_surface(csv_path, cell=0.1, power=2):
 
     glon, glat = np.meshgrid(lon_c, lat_c)
     d2 = (glon[..., None] - lons) ** 2 + (glat[..., None] - lats) ** 2
-    w = 1.0 / np.maximum(d2, 1e-6) ** (power / 2)
-    grid = (w * risks).sum(axis=-1) / w.sum(axis=-1)
+    w = np.exp(-d2 / (2 * sigma ** 2))
+    density = (w * (1 + np.log10(1 + risks))).sum(axis=-1)
+    grid = 100.0 * np.log1p(density) / max(np.log1p(density.max()), 1e-9)
 
+    # Slightly overlap cells to avoid hairline seams when rendered as fills
+    pad = cell * 0.05
     features = []
     for i in range(len(lat_c)):
         for j in range(len(lon_c)):
-            x0, x1 = lon_edges[j], lon_edges[j + 1]
-            y0, y1 = lat_edges[i], lat_edges[i + 1]
+            x0, x1 = lon_edges[j] - pad, lon_edges[j + 1] + pad
+            y0, y1 = lat_edges[i] - pad, lat_edges[i + 1] + pad
             features.append({
                 "type": "Feature",
                 "geometry": {
@@ -110,6 +115,80 @@ def risk_surface():
     if _surface_cache is None:
         _surface_cache = build_risk_surface("helpers/data/input.csv")
     return jsonify(_surface_cache)
+
+
+def _colormap(vals):
+    """Map 0-100 risk values to green->yellow->orange->red RGB channels."""
+    stops = np.array([0, 35, 55, 70, 85, 100])
+    reds = np.array([0, 170, 255, 255, 220, 200])
+    greens = np.array([180, 220, 215, 140, 60, 0])
+    blues = np.array([0, 0, 0, 0, 40, 0])
+    return (np.interp(vals, stops, reds),
+            np.interp(vals, stops, greens),
+            np.interp(vals, stops, blues))
+
+
+def build_risk_image(csv_path, cell=0.02, sigma=0.1):
+    """
+    Render the severity-weighted fire-density surface as a smooth RGBA PNG
+    plus its geographic bounds, for use as a map image overlay.
+    """
+    lats, lons, risks = [], [], []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            try:
+                lats.append(float(row["Lat_DD"]))
+                lons.append(float(row["Long_DD"]))
+                risks.append(float(row["Risk"]))
+            except (KeyError, ValueError):
+                continue
+
+    lats, lons, risks = np.asarray(lats), np.asarray(lons), np.asarray(risks)
+    lon_c = np.arange(lons.min() - cell, lons.max() + cell, cell)
+    lat_c = np.arange(lats.min() - cell, lats.max() + cell, cell)
+    severity = 1 + np.log10(1 + risks)
+
+    rows = []
+    for i in range(0, len(lat_c), 16):  # chunk rows to bound memory
+        glat = lat_c[i:i + 16]
+        d2 = (lon_c[None, :, None] - lons) ** 2 + (glat[:, None, None] - lats) ** 2
+        rows.append((np.exp(-d2 / (2 * sigma ** 2)) * severity).sum(axis=-1))
+    density = np.concatenate(rows, axis=0)
+    grid = 100.0 * np.log1p(density) / max(np.log1p(density.max()), 1e-9)
+
+    r, g, b = _colormap(grid)
+    alpha = np.full_like(r, 160.0)
+    rgba = np.flipud(np.stack([r, g, b, alpha], axis=-1)).astype(np.uint8)
+
+    buf = io.BytesIO()
+    Image.fromarray(rgba, "RGBA").save(buf, "PNG")
+    bounds = {
+        "west": float(lon_c[0] - cell / 2), "east": float(lon_c[-1] + cell / 2),
+        "south": float(lat_c[0] - cell / 2), "north": float(lat_c[-1] + cell / 2),
+    }
+    return buf.getvalue(), bounds
+
+
+_surface_image = None
+
+
+def _surface_image_data():
+    global _surface_image
+    if _surface_image is None:
+        _surface_image = build_risk_image("helpers/data/input.csv")
+    return _surface_image
+
+
+@app.route("/risk-surface.png")
+def risk_surface_png():
+    png, _ = _surface_image_data()
+    return Response(png, mimetype="image/png")
+
+
+@app.route("/risk-surface-bounds")
+def risk_surface_bounds():
+    _, bounds = _surface_image_data()
+    return jsonify(bounds)
 
 # @app.route("/predict", methods=["POST"])
 # def predict():
