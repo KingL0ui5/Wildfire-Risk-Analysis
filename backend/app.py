@@ -128,10 +128,12 @@ def _colormap(vals):
             np.interp(vals, stops, blues))
 
 
-def build_risk_image(csv_path, cell=0.02, sigma=0.1):
+def build_risk_image(csv_path, cell=0.02, sigma_broad=0.12, sigma_hot=0.1):
     """
-    Render the severity-weighted fire-density surface as a smooth RGBA PNG
-    plus its geographic bounds, for use as a map image overlay.
+    Render the fire-risk surface as a smooth RGBA PNG plus its geographic
+    bounds, for use as a map image overlay. Combines two components:
+    a broad density wash (green->yellow->orange) and tight hotspots at
+    major fires (red dots).
     """
     lats, lons, risks = [], [], []
     with open(csv_path, newline="", encoding="utf-8") as f:
@@ -147,14 +149,21 @@ def build_risk_image(csv_path, cell=0.02, sigma=0.1):
     lon_c = np.arange(lons.min() - cell, lons.max() + cell, cell)
     lat_c = np.arange(lats.min() - cell, lats.max() + cell, cell)
     severity = 1 + np.log10(1 + risks)
+    hot_weight = np.clip(np.log10(1 + risks) - 2, 0, 1.2)  # only sizeable fires
 
-    rows = []
+    broad_rows, hot_rows = [], []
     for i in range(0, len(lat_c), 16):  # chunk rows to bound memory
         glat = lat_c[i:i + 16]
         d2 = (lon_c[None, :, None] - lons) ** 2 + (glat[:, None, None] - lats) ** 2
-        rows.append((np.exp(-d2 / (2 * sigma ** 2)) * severity).sum(axis=-1))
-    density = np.concatenate(rows, axis=0)
-    grid = 100.0 * np.log1p(density) / max(np.log1p(density.max()), 1e-9)
+        broad_rows.append((np.exp(-d2 / (2 * sigma_broad ** 2)) * severity).sum(axis=-1))
+        hot_rows.append((np.exp(-d2 / (2 * sigma_hot ** 2)) * hot_weight).sum(axis=-1))
+    broad = np.concatenate(broad_rows, axis=0)
+    hot = np.concatenate(hot_rows, axis=0)
+
+    # Broad wash tops out at orange; only hotspots reach red
+    broad_score = 68.0 * np.log1p(broad) / max(np.log1p(broad.max()), 1e-9)
+    hot_score = 100.0 * (hot / max(hot.max(), 1e-9)) ** 0.5
+    grid = np.maximum(broad_score, hot_score)
 
     r, g, b = _colormap(grid)
     alpha = np.full_like(r, 160.0)
