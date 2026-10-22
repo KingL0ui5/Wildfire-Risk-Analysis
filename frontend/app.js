@@ -27,6 +27,33 @@ map.on('click', (e) => {
 
 
 map.on('load', () => {
+  // Smooth risk surface rendered server-side as an image overlay
+  fetch('http://localhost:5000/risk-surface-bounds')
+    .then(r => r.json())
+    .then(b => {
+      map.addSource('riskSurface', {
+        type: 'image',
+        url: 'http://localhost:5000/risk-surface.png',
+        coordinates: [
+          [b.west, b.north],
+          [b.east, b.north],
+          [b.east, b.south],
+          [b.west, b.south]
+        ]
+      });
+      map.addLayer({
+        id: 'risk-surface',
+        type: 'raster',
+        source: 'riskSurface',
+        paint: {
+          'raster-opacity': 0.55,
+          'raster-resampling': 'linear',
+          'raster-fade-duration': 0
+        }
+      }, map.getLayer('risk-heat-low') ? 'risk-heat-low' : undefined);
+    })
+    .catch(err => console.error('Failed to load risk surface:', err));
+
   map.addSource('riskPoints', {
     type: 'geojson',
     data: 'http://localhost:5000/predict'
@@ -128,7 +155,9 @@ map.on('load', () => {
       ul.innerHTML = top5.map(f => {
         const [lon, lat] = f.geometry.coordinates || [NaN, NaN];
         const risk = Number(f.properties?.risk) || 0;
-        return `<li class="list-group-item">${lon.toFixed(3)}, ${lat.toFixed(3)} <span class="text-muted">— risk ${risk}</span></li>`;
+        const raw = Number(f.properties?.raw_risk);
+        const rawText = Number.isFinite(raw) ? ` (raw ${raw.toLocaleString()})` : '';
+        return `<li class="list-group-item">${lon.toFixed(3)}, ${lat.toFixed(3)} <span class="text-muted">— risk ${risk}${rawText}</span></li>`;
       }).join('');
     })
     .catch(err => console.error('Failed to load points.geojson:', err));

@@ -3,3 +3,4 @@ joblib
 flask
 pathlib
 Flask-CORS
+pillow

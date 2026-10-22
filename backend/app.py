@@ -1,7 +1,10 @@
-# import numpy as np
-from flask import Flask, request, jsonify
+import numpy as np
+from flask import Flask, request, jsonify, Response
 from helpers.converter import csv_to_geojson
 import json
+import csv
+import io
+from PIL import Image
 from flask_cors import CORS
 
 
@@ -24,6 +27,14 @@ CORS(app)
 def home():
     return jsonify({"message": "🔥 Wildfire Forecast API is running. \n(home directory accessed)"})
 
+def normalise_risks(values):
+    """Log-scaled min-max normalisation to a 0-100 scale (robust to heavy tails)."""
+    arr = np.asarray(values, dtype=float)
+    logs = np.log10(arr + 1)
+    lo, hi = logs.min(), logs.max()
+    return 100.0 * (logs - lo) / max(hi - lo, 1e-9)
+
+
 @app.route("/predict")
 def predict():
     """
@@ -31,10 +42,159 @@ def predict():
     """
 
     # randomise data here
-    csv_to_geojson("backend/helpers/data/input.csv", "backend/helpers/data/output.geojson")
-    geojson_data = json.load("backend/helpers/data/output.geojson")
+    csv_to_geojson("helpers/data/input.csv", "helpers/data/output.geojson")
+    with open("helpers/data/output.geojson", encoding="utf-8") as f:
+        geojson_data = json.load(f)
+
+    features = geojson_data.get("features", [])
+    normed = normalise_risks([f["properties"]["risk"] for f in features])
+    for feature, score in zip(features, normed):
+        feature["properties"]["raw_risk"] = feature["properties"]["risk"]
+        feature["properties"]["risk"] = round(float(score), 2)
 
     return jsonify(geojson_data)
+
+
+def build_risk_surface(csv_path, cell=0.1, sigma=0.25):
+    """
+    Build a severity-weighted fire-density surface on a regular grid,
+    returned as a GeoJSON FeatureCollection of grid-cell polygons.
+    Each cell scores the amount of nearby fire activity (Gaussian kernel),
+    weighted by log severity, then log-normalised to 0-100.
+    """
+    lats, lons, risks = [], [], []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            try:
+                lats.append(float(row["Lat_DD"]))
+                lons.append(float(row["Long_DD"]))
+                risks.append(float(row["Risk"]))
+            except (KeyError, ValueError):
+                continue
+
+    lats, lons, risks = np.asarray(lats), np.asarray(lons), np.asarray(risks)
+    lon_edges = np.arange(lons.min() - cell, lons.max() + 2 * cell, cell)
+    lat_edges = np.arange(lats.min() - cell, lats.max() + 2 * cell, cell)
+    lon_c = (lon_edges[:-1] + lon_edges[1:]) / 2
+    lat_c = (lat_edges[:-1] + lat_edges[1:]) / 2
+
+    glon, glat = np.meshgrid(lon_c, lat_c)
+    d2 = (glon[..., None] - lons) ** 2 + (glat[..., None] - lats) ** 2
+    w = np.exp(-d2 / (2 * sigma ** 2))
+    density = (w * (1 + np.log10(1 + risks))).sum(axis=-1)
+    grid = 100.0 * np.log1p(density) / max(np.log1p(density.max()), 1e-9)
+
+    # Slightly overlap cells to avoid hairline seams when rendered as fills
+    pad = cell * 0.05
+    features = []
+    for i in range(len(lat_c)):
+        for j in range(len(lon_c)):
+            x0, x1 = lon_edges[j] - pad, lon_edges[j + 1] + pad
+            y0, y1 = lat_edges[i] - pad, lat_edges[i + 1] + pad
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]],
+                },
+                "properties": {"risk": round(float(grid[i, j]), 2)},
+            })
+
+    return {"type": "FeatureCollection", "features": features}
+
+
+_surface_cache = None
+
+
+@app.route("/risk-surface")
+def risk_surface():
+    """
+    Return an IDW-interpolated continuous risk surface as GeoJSON grid polygons.
+    """
+    global _surface_cache
+    if _surface_cache is None:
+        _surface_cache = build_risk_surface("helpers/data/input.csv")
+    return jsonify(_surface_cache)
+
+
+def _colormap(vals):
+    """Map 0-100 risk values to RGB: flat green below 25, then yellow->orange->red."""
+    stops = np.array([0, 25, 40, 55, 70, 85])
+    reds = np.array([0, 0, 255, 255, 220, 200])
+    greens = np.array([180, 180, 215, 140, 60, 0])
+    blues = np.array([0, 0, 0, 0, 40, 0])
+    return (np.interp(vals, stops, reds),
+            np.interp(vals, stops, greens),
+            np.interp(vals, stops, blues))
+
+
+def build_risk_image(csv_path, cell=0.02, sigma=0.08):
+    """
+    Render the risk surface as a smooth RGBA PNG plus its geographic bounds,
+    for use as a map image overlay. Every grid point is evaluated as the
+    Gaussian-weighted local average of the risk evaluations (normalised
+    0-100), so low-risk areas render as flat green and only genuinely
+    high-risk evaluations escalate through yellow/orange/red.
+    """
+    lats, lons, risks = [], [], []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            try:
+                lats.append(float(row["Lat_DD"]))
+                lons.append(float(row["Long_DD"]))
+                risks.append(float(row["Risk"]))
+            except (KeyError, ValueError):
+                continue
+
+    lats, lons = np.asarray(lats), np.asarray(lons)
+    risk_norm = normalise_risks(risks)
+    lon_c = np.arange(lons.min() - cell, lons.max() + cell, cell)
+    lat_c = np.arange(lats.min() - cell, lats.max() + cell, cell)
+
+    num_rows, den_rows = [], []
+    for i in range(0, len(lat_c), 16):  # chunk rows to bound memory
+        glat = lat_c[i:i + 16]
+        d2 = (lon_c[None, :, None] - lons) ** 2 + (glat[:, None, None] - lats) ** 2
+        w = np.exp(-d2 / (2 * sigma ** 2))
+        num_rows.append((w * risk_norm).sum(axis=-1))
+        den_rows.append(w.sum(axis=-1))
+    num = np.concatenate(num_rows, axis=0)
+    den = np.concatenate(den_rows, axis=0)
+    grid = np.where(den > 1e-10, num / np.maximum(den, 1e-10), 0.0)
+
+    r, g, b = _colormap(grid)
+    alpha = np.full_like(r, 160.0)
+    rgba = np.flipud(np.stack([r, g, b, alpha], axis=-1)).astype(np.uint8)
+
+    buf = io.BytesIO()
+    Image.fromarray(rgba, "RGBA").save(buf, "PNG")
+    bounds = {
+        "west": float(lon_c[0] - cell / 2), "east": float(lon_c[-1] + cell / 2),
+        "south": float(lat_c[0] - cell / 2), "north": float(lat_c[-1] + cell / 2),
+    }
+    return buf.getvalue(), bounds
+
+
+_surface_image = None
+
+
+def _surface_image_data():
+    global _surface_image
+    if _surface_image is None:
+        _surface_image = build_risk_image("helpers/data/input.csv")
+    return _surface_image
+
+
+@app.route("/risk-surface.png")
+def risk_surface_png():
+    png, _ = _surface_image_data()
+    return Response(png, mimetype="image/png")
+
+
+@app.route("/risk-surface-bounds")
+def risk_surface_bounds():
+    _, bounds = _surface_image_data()
+    return jsonify(bounds)
 
 # @app.route("/predict", methods=["POST"])
 # def predict():
